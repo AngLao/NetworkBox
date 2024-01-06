@@ -50,10 +50,6 @@ static esp_err_t login_handler(httpd_req_t *req)
 
     buffer[content_length] = '\0';
 
-    // ESP_LOGI(TAG, "=========== RECEIVED DATA ==========");
-    // ESP_LOGI(TAG, "%s", buffer);
-    // ESP_LOGI(TAG, "====================================");
-
     /* 解析表单数据 */
     char ssid[32], password[64];
     if (httpd_query_key_value(buffer, "username", ssid, sizeof(ssid)) == ESP_OK &&
@@ -61,9 +57,9 @@ static esp_err_t login_handler(httpd_req_t *req)
         ESP_LOGI(TAG, "receive ssid: %s, password: %s", ssid, password); 
 
         /* 收到wifi sta模式配置数据 使用nvs写入flash储存 */
-        nvs_update_wifi_message(STA_NVS_KEY, ssid, password);
-    }else
-        ESP_LOGI(TAG, "parse error");
+        if(nvs_update_wifi_info(STA_NVS_KEY, ssid, password) == 0)
+            ESP_LOGI(TAG, "update_wifi_info success"); 
+    }
 
     httpd_resp_send(req, "Login successful", HTTPD_RESP_USE_STRLEN);
 

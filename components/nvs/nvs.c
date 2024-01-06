@@ -3,106 +3,114 @@
 static const char *TAG = "nvs";
 
 // 存储数据块到 NVS
-void nvs_write_blob(const char *namespace, const char *key, const void *value, size_t length)
+int nvs_write_blob(const char *namespace, const char *key, const void *value, size_t length)
 {
-    // 初始化 NVS
-    ESP_ERROR_CHECK(nvs_flash_init());
-
-    // 打开 NVS 命名空间
     nvs_handle_t nvs_handle;
-    ESP_ERROR_CHECK(nvs_open(namespace, NVS_READWRITE, &nvs_handle));
+    if(nvs_open(namespace, NVS_READWRITE, &nvs_handle) != ESP_OK)
+        return -1;
 
-    // 存储字符串键值对到 NVS
-    ESP_ERROR_CHECK(nvs_set_blob(nvs_handle, key, value, length));
+    if(nvs_set_blob(nvs_handle, key, value, length) != ESP_OK)
+        return -1;
 
-    // 提交更改
+    // 写入flash
     ESP_ERROR_CHECK(nvs_commit(nvs_handle));
-
-    ESP_LOGI(TAG, "%s blob data commit success", key);
-    // 关闭 NVS 命名空间
+    
     nvs_close(nvs_handle);
+    return 0;
 }
 
 // 从 NVS 读数据块
-void nvs_read_blob(const char *namespace, const char *key, void *out_value, size_t *length)
+int nvs_read_blob(const char *namespace, const char *key, void *out_value, size_t *length)
 {
-    // 打开 NVS 命名空间
     nvs_handle_t nvs_handle;
-    ESP_ERROR_CHECK(nvs_open(namespace, NVS_READONLY, &nvs_handle));
+    if( nvs_open(namespace, NVS_READONLY, &nvs_handle) != ESP_OK)
+        return -1;
 
-    esp_err_t ret = nvs_get_blob(nvs_handle, key, out_value, length);
-    if (ret != ESP_OK) 
-        ESP_LOGI(TAG, "Error reading WiFi SSID from NVS\n");
+    if (nvs_get_blob(nvs_handle, key, out_value, length) != ESP_OK) 
+        return -1;
 
-    // 关闭 NVS 命名空间
     nvs_close(nvs_handle);
+    return 0;
 }
 
-void nvs_update_wifi_message(const char *key, const char *ssid, const char *password)
+int nvs_update_wifi_info(const char *key, const char *ssid, const char *password)
 {
     if( (key == NULL) || (ssid == NULL) || (password == NULL) ){
         ESP_LOGI(TAG, "null pointer error");
-        return;
+        return -1;
     }
 
     size_t ssid_len = strlen(ssid);
     size_t password_len = strlen(password);
     if( (ssid_len > 31) || (password_len > 63)){
         ESP_LOGI(TAG, "parameter overlength error");
-        return;
+        return -1;
     }
 
-    wifi_base_data_t wifi_message = {
+    wifi_info_t wifi_message = {
         .ssid = {0},
         .password = {0},
     };
-
     memcpy(wifi_message.ssid, ssid, ssid_len);
     memcpy(wifi_message.password, password, password_len);
 
-    nvs_data_t nvs_data = {
-        .namespace = "wifi",
-        .key = key,
-        .value = &wifi_message,
-        .length = sizeof(wifi_message)
-    };
-    
-    nvs_write_blob(nvs_data.namespace, nvs_data.key, nvs_data.value, nvs_data.length);
+    return nvs_write_blob("wifi", key, &wifi_message, sizeof(wifi_message));
 }
 
-void nvs_read_wifi_message(const char *key, wifi_base_data_t *wifi_message)
+int nvs_read_wifi_info(const char *key, wifi_info_t *wifi_info)
 {
-    if(wifi_message == NULL){
-        ESP_LOGI(TAG, "null pointer error");
-        return;
+    if(wifi_info == NULL){
+        ESP_LOGI(TAG, "wifi_info null pointer error");
+        return -1;
     }
-
-    nvs_data_t nvs_data = {
-        .namespace = "wifi",
-        .key = key,
-        .value = (void *)wifi_message,
-        .length = sizeof(*wifi_message)
-    };
 
     size_t length = 0;
-    nvs_read_blob(nvs_data.namespace, nvs_data.key, NULL, &length);
-    ESP_LOGI(TAG, "%s blob len : %d", nvs_data.key, length);
+    nvs_read_blob("wifi", key, NULL, &length);
     if(length == 0){
         ESP_LOGI(TAG, "This data block has no data");
-        return;
+        return -1;
     }
 
-    nvs_read_blob(nvs_data.namespace, nvs_data.key, nvs_data.value, &nvs_data.length);
-    ESP_LOGI(TAG, "%s ssid: %s password: %s",nvs_data.key, wifi_message->ssid, wifi_message->password);
+    length = sizeof(*wifi_info);
+    return nvs_read_blob("wifi", key, (void *)wifi_info, &length);
 }
 
-
-void nvs_update_wifi_message_default(void)
+int nvs_update_ip_info(const char *key, const char *ip, const uint16_t port)
 {
-    nvs_update_wifi_message(STA_NVS_KEY, STA_SSID_DEFAULT, STA_PASSWORD_DEFAULT);
-    nvs_update_wifi_message(AP_NVS_KEY, AP_SSID_DEFAULT, AP_PASSWORD_DEFAULT);
+    if( (key == NULL) || (ip == NULL) ){
+        ESP_LOGI(TAG, "null pointer error");
+        return -1;
+    }
 
-    wifi_base_data_t wifi_message;
-    nvs_read_wifi_message(STA_NVS_KEY, &wifi_message);
-    nvs_read_wifi_message(AP_NVS_KEY, &wifi_message);
+    size_t ip_len = strlen(ip);
+    if( (ip_len > 46)){
+        ESP_LOGI(TAG, "ip parameter overlength error");
+        return -1;
+    }
+
+    ip_info_t ip_info = {
+        .ip_str = {0},
+        .port = port,
+    };
+    memcpy(ip_info.ip_str, ip, ip_len);
+
+    return nvs_write_blob("ip", key, &ip_info, sizeof(ip_info));
+}
+
+int nvs_read_ip_info(const char *key, ip_info_t *ip_info)
+{
+    if(ip_info == NULL){
+        ESP_LOGI(TAG, "ip_info null pointer error");
+        return -1;
+    }
+
+    size_t length = 0;
+    nvs_read_blob("ip", key, NULL, &length);
+    if(length == 0){
+        ESP_LOGI(TAG, "This data block has no data");
+        return -1;
+    }
+
+    length = sizeof(*ip_info);
+    return nvs_read_blob("ip", key, (void *)ip_info, &length);
 }

@@ -14,6 +14,7 @@
 
 #include "../nvs/nvs.h"
 
+uint8_t wifi_sta_isconnect(void);
 void wifi_task(void *parameter);
 
 #endif

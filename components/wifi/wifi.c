@@ -11,15 +11,25 @@ static EventBits_t sta_event_status = 0;
 #define STA_WIFI_CONNECTED      1
 #define STA_WIFI_DISCONNECTED   2
 
+static uint8_t sta_connect_status = 0;
+
+uint8_t wifi_sta_isconnect(void)
+{
+    return sta_connect_status;
+}
+
 static void sta_event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         sta_event_status = STA_WIFI_DISCONNECTED;
+        sta_connect_status = 0;
         ESP_LOGI(TAG,"WiFi event sta disconnected");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+        sta_connect_status = 1;
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+
     }
 }
 
@@ -81,8 +91,8 @@ void wifi_init_sta(void) {
         },
     };
     /* 从flsh中读取WiFi配置 */
-    wifi_base_data_t wifi_message;
-    nvs_read_wifi_message(STA_NVS_KEY, &wifi_message);
+    wifi_info_t wifi_message;
+    nvs_read_wifi_info(STA_NVS_KEY, &wifi_message);
     memcpy(wifi_config.sta.ssid, wifi_message.ssid, sizeof(wifi_message.ssid));
     memcpy(wifi_config.sta.password, wifi_message.password, sizeof(wifi_message.password));
 
@@ -125,8 +135,8 @@ void wifi_init_softap(void) {
         },
     };
     /* 从flsh中读取WiFi配置 */
-    wifi_base_data_t wifi_message;
-    nvs_read_wifi_message(AP_NVS_KEY, &wifi_message);
+    wifi_info_t wifi_message;
+    nvs_read_wifi_info(AP_NVS_KEY, &wifi_message);
     memcpy(wifi_config.ap.ssid, wifi_message.ssid, sizeof(wifi_message.ssid));
     memcpy(wifi_config.ap.password, wifi_message.password, sizeof(wifi_message.password));
 

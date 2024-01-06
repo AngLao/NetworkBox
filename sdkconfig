@@ -340,12 +340,6 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
-# Example Configuration
-#
-# CONFIG_EXAMPLE_BASIC_AUTH is not set
-# end of Example Configuration
-
-#
 # Example Connection Configuration
 #
 CONFIG_ENV_GPIO_RANGE_MIN=0
